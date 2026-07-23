@@ -5,9 +5,23 @@ on:
     # Every 3 hours (GitHub Actions free tier: 2000 min/month; this ~480 min/mo).
     - cron: "7 */3 * * *"
   workflow_dispatch:
+  # rebuild whenever the scraper/UI code changes
+  push:
+    paths:
+      - "scout.py"
+      - "teams.py"
+      - "build_data.py"
+      - "docs/index.html"
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# allow one concurrent refresh; don't cancel an in-flight run
+concurrency:
+  group: pages-refresh
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,10 +37,25 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site/data.json
+          git add docs/data.json
           if git diff --cached --quiet; then
             echo "No changes to data.json"
           else
             git commit -m "chore: refresh 247 prediction data"
             git push
           fi
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
