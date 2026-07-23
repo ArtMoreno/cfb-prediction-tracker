@@ -298,14 +298,26 @@ function wirePager(mount, pageSize){
   });
 }
 
-function renderPagedRows(mount, pageSize, pagerSel){
+function teamRowHTML(r){ return `
+    <tr data-tier="${r.tier}">
+      <td>${r.name}</td>
+      <td>${r.pct.toFixed(1)}%
+        <div class="bar"><i style="width:${r.pct}%"></i></div></td>
+      <td><span class="chip" style="background:${r.tier_color}">${r.tier}</span>
+          <span class="trend" title="momentum">${r.trend_symbol}</span></td>
+      <td>${r.miami}/${r.picks}</td>
+      <td class="muted">${r.years.join(", ")}</td>
+    </tr>`;
+}
+
+function renderPagedRows(mount, pageSize, pagerSel, rowHTML){
   const st = PAGE_STATE[mount];
   const rows = st.filtered();
   const total = rows.length;
   const start = offsetFor(st.page, pageSize);
   const slice = rows.slice(start, start + pageSize);
   const tbody = document.querySelector(`${mount} tbody`);
-  if(tbody) tbody.innerHTML = slice.join("");
+  if(tbody) tbody.innerHTML = slice.map(rowHTML).join("");
   // (re)build pager into its container
   const pagerMount = document.querySelector(pagerSel || `${mount} nav.pager`);
   if(pagerMount) pagerMount.outerHTML = buildPagerHTML(mount, total, pageSize);
@@ -341,8 +353,8 @@ function renderTeam(d){
   `;
   if(allRows.length){
     const tf = $("#tierFilter");
-    tf.onchange = ()=>{ PAGE_STATE["#teamResult"].page = 1; renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager"); };
-    renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager");
+    tf.onchange = ()=>{ PAGE_STATE["#teamResult"].page = 1; renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager", teamRowHTML); };
+    renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager", teamRowHTML);
   }
 }
 
