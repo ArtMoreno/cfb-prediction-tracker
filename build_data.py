@@ -1,4 +1,4 @@
-"""Build site/data.json — the precomputed dataset for the static GitHub Pages site.
+"""Build docs/data.json — the precomputed dataset for the static GitHub Pages site.
 
 Scans every FBS team's 247 Crystal Ball, computes confidence tiers + momentum
 + stars/ratings (reusing scout.scan_team), and writes a single data.json that
@@ -42,7 +42,7 @@ def prev_pick_map(prev):
 
 
 def main():
-    os.makedirs(os.path.join(HERE, "site"), exist_ok=True)
+    os.makedirs(os.path.join(HERE, "docs"), exist_ok=True)
     prev = load_previous()
     prev_picks = prev_pick_map(prev)
 
