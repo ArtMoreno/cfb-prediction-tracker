@@ -15,7 +15,7 @@ import teams
 import scout
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(HERE, "site", "data.json")
+DATA_PATH = os.path.join(HERE, "docs", "data.json")
 
 # Default watchlist for the static "shared targets" feature (powers + Miami).
 DEFAULT_WATCHLIST = ["miami", "alabama", "georgia", "texas", "ohio-state", "florida-state"]

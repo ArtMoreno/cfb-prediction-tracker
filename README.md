@@ -19,9 +19,9 @@ Built as a **static site on GitHub Pages** — no server, no cost. A GitHub Acti
 
 ## Local dev
 ```bash
-python build_data.py        # regenerate site/data.json
-# then open site/index.html (or serve the folder)
-python -m http.server -d site 8000
+python build_data.py        # regenerate docs/data.json
+# then open docs/index.html (or serve the folder)
+python -m http.server -d docs 8000
 ```
 
 ## Notes / honest scope
