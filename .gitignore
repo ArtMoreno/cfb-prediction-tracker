@@ -1,6 +1,16 @@
-site/data.json
-.venv/
-state/
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
+*.egg-info/
+
+# App state (rebuildable SQLite index, not source)
+state/*.db
+state/*.db-wal
+state/*.db-shm
+
+# OS / editor
+.DS_Store
+Thumbs.db
 *.log
