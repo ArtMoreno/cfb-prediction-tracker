@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🏈 CFB Prediction Tracker — every D1 team</title>
+<style>
+  :root{
+    --bg:#0b1f17; --panel:#112b20; --panel2:#0e2419; --fg:#e8f5ee;
+    --muted:#9fb8ac; --green:#16a34a; --green2:#1ec35a; --orange:#f59e0b;
+    --new:#7dffb0; --line:#1c3a2c;
+    /* motion: explicit curves, never linear for UI moves */
+    --ease-ui: cubic-bezier(.4, 0, .2, 1);   /* fast start, soft landing */
+    --ease-out: cubic-bezier(0, 0, .2, 1);   /* entering */
+    --ease-in: cubic-bezier(.4, 0, 1, 1);    /* leaving */
+    --dur: 200ms;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+  /* ===== Parallax hero (layered depth) ===== */
+  .hero{position:relative;overflow:hidden;min-height:200px;
+    border-bottom:1px solid var(--line)}
+  .hero__bg{position:absolute;inset:-20% 0;z-index:0;will-change:transform;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1c4a32 0%, #0b1f17 60%),
+      repeating-linear-gradient(115deg, rgba(30,195,90,.06) 0 22px, transparent 22px 44px);
+    animation: heroParallax linear both;          /* shorthand first */
+    animation-timeline: scroll(root block);        /* declared AFTER -> not reset */
+    animation-range: 0 400px;}
+  .hero__mid{position:absolute;inset:0;z-index:1;will-change:transform;
+    background:radial-gradient(80% 120% at 80% 0%, rgba(245,158,11,.10), transparent 55%);
+    animation: heroParallaxMid linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0 400px;}
+  .hero__fg{position:relative;z-index:2;display:flex;align-items:center;gap:14px;
+    flex-wrap:wrap;padding:22px 22px 18px}
+  .hero__fg h1{margin:0;font-size:22px;color:var(--green)}
+  .hero__fg .sub{color:var(--muted);font-size:13px}
+  @keyframes heroParallax{to{transform:translateY(60px) scale(1.04)}}
+  @keyframes heroParallaxMid{to{transform:translateY(28px)}}
+  /* Reduced motion: kill parallax, fall back to ordinary static hero */
+  @media (prefers-reduced-motion: reduce){
+    .hero__bg, .hero__mid{animation:none; transform:none}
+    .badge.new{animation:none}
+  }
+  header{padding:0;border-bottom:none;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{display:none}
+  header .sub{display:none}
+  .wrap{display:flex;gap:18px;padding:18px 22px;align-items:flex-start;flex-wrap:wrap}
+  .col{flex:1;min-width:340px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:16px}
+  h2{margin:0 0 12px;font-size:15px;color:var(--orange);letter-spacing:.3px}
+  label{display:block;color:var(--muted);font-size:12px;margin:10px 0 4px}
+  select,input[type=text]{width:100%;padding:9px 10px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;color:var(--fg);font-size:14px}
+  .years{display:flex;gap:8px;margin-top:6px}
+  .years label{display:flex;align-items:center;gap:6px;color:var(--fg);
+    font-size:13px;margin:0;cursor:pointer}
+  button{cursor:pointer;border:none;border-radius:8px;font-weight:600;font-size:14px;
+    padding:10px 16px;background:var(--green);color:#fff;
+    transition:background-color var(--dur) var(--ease-ui), transform var(--dur) var(--ease-out)}
+  button:hover{background:var(--green2);transform:translateY(-1px)}
+  button:active{transform:translateY(0);transition-duration:120ms}
+  button.ghost{background:var(--panel2);color:var(--fg);border:1px solid var(--line)}
+  button.danger{background:#3a1414;color:#ffb4b4}
+  .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .badge{display:inline-block;background:var(--green);color:#04130b;font-weight:700;
+    font-size:11px;border-radius:999px;padding:2px 8px;margin-left:6px}
+  .badge.new{background:var(--new);color:#04130b;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  .chip{display:inline-block;color:#04130b;font-weight:700;font-size:11px;
+    border-radius:999px;padding:2px 9px;vertical-align:middle}
+  .trend{display:inline-block;margin-left:6px;font-weight:800;font-size:14px;vertical-align:middle}
+  .trend{color:var(--new)}
+  .bar{height:9px;background:var(--line);border-radius:6px;overflow:hidden;min-width:60px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--green2))}
+  .muted{color:var(--muted)}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:999px;padding:5px 10px;margin:4px 4px 0 0;font-size:13px}
+  .pill button{background:none;color:#ff9a9a;padding:0 0 0 4px;font-size:15px}
+  .pill.add{background:var(--green);color:#04130b;font-weight:600}
+  .pill.add button{color:#04130b}
+  .feed{list-style:none;margin:0;padding:0}
+  .feed li{padding:9px 0;border-bottom:1px solid var(--line)}
+  .empty{color:var(--muted);font-style:italic;padding:10px 0}
+  .pager{display:flex;gap:6px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .pager a{cursor:pointer;min-width:30px;text-align:center;padding:6px 9px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:7px;
+    color:var(--fg);font-size:13px;text-decoration:none;
+    transition:background-color var(--dur) var(--ease-ui), color var(--dur) var(--ease-ui)}
+  .pager a:hover{background:var(--green);color:#04130b}
+  .pager a[aria-current=\"page\"]{background:var(--green);color:#04130b;font-weight:700}
+  .pager a.ellipsis{border:none;background:none;cursor:default;color:var(--muted)}
+  .pager a.disabled{opacity:.35;pointer-events:none}
+  .pager .info{margin-left:auto;color:var(--muted);font-size:12px}
+
+  /* ===== Carousel (content slider) ===== */
+  .carousel{position:relative;margin-top:8px}
+  .carousel__track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:4px 2px 10px;scrollbar-width:thin}
+  .carousel__track::-webkit-scrollbar{height:8px}
+  .carousel__track::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+  .carousel__slide{flex:0 0 260px;scroll-snap-align:start;background:var(--panel2);
+    border:1px solid var(--line);border-radius:12px;padding:14px;transition:transform var(--dur) var(--ease-ui)}
+  .carousel__slide:hover{transform:translateY(-2px)}
+  .carousel__slide h3{margin:0 0 6px;font-size:15px;color:var(--green2)}
+  .carousel__slide .meta{margin-top:6px}
+  .carousel__dots{display:flex;gap:7px;justify-content:center;margin-top:6px}
+  .carousel__dots button{width:10px;height:10px;min-width:0;padding:0;border-radius:50%;
+    background:var(--line);opacity:.7}
+  .carousel__dots button[aria-current="true"]{background:var(--green);opacity:1;transform:scale(1.15)}
+  .carousel__nav{position:absolute;top:42%;transform:translateY(-50%);z-index:3;
+    width:34px;height:34px;border-radius:50%;background:var(--panel);color:var(--fg);
+    border:1px solid var(--line);font-size:18px;line-height:1}
+  .carousel__nav.prev{left:-6px}
+  .carousel__nav.next{right:-6px}
+
+  /* ===== Level-gauge meter (NSLevelIndicator web analog) ===== */
+  .gauge{margin:8px 0}
+  .gauge__label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .gauge__track{height:14px;border-radius:8px;background:var(--line);overflow:hidden;position:relative}
+  .gauge__fill{height:100%;border-radius:8px;
+    background:linear-gradient(90deg,#16a34a,#1ec35a);
+    transition:width var(--dur) var(--ease-ui), background-color var(--dur) var(--ease-ui)}
+  .gauge__fill.warn{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .gauge__fill.crit{background:linear-gradient(90deg,#ef4444,#f87171)}
+  .gauge__ticks{position:absolute;inset:0;pointer-events:none}
+  .gauge__ticks i{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.25)}
+  @media (prefers-reduced-motion: reduce){
+    .carousel__slide,.gauge__fill{transition:none}
+  }
+
+  a{color:var(--green2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .toast{position:fixed;right:20px;bottom:20px;background:var(--green);color:#04130b;
+    padding:14px 18px;border-radius:10px;font-weight:600;box-shadow:0 6px 24px #0008;
+    opacity:0;transform:translateY(12px);
+    transition:opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+    max-width:360px}
+  .toast.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<!-- Parallax hero: bg layer translates slower than fg (layered depth) -->
+<div class="hero" role="banner">
+  <div class="hero__bg" aria-hidden="true"></div>
+  <div class="hero__mid" aria-hidden="true"></div>
+  <div class="hero__fg">
+    <h1>🏈 CFB Prediction Tracker</h1>
+    <span class="sub">247Sports Crystal Ball — every FBS team · NEW picks flagged since your last scan</span>
+  </div>
+</div>
+
+<!-- Trending carousel: a11y content slider -->
+<section class="wrap" style="padding-top:6px">
+  <div class="col" style="background:transparent;border:none;padding:0">
+    <h2 style="color:var(--green)">🔥 TRENDING ON THE BOARDS</h2>
+    <div class="carousel" role="region" aria-roledescription="carousel" aria-label="Trending recruits">
+      <button class="carousel__nav prev" data-dir="-1" aria-label="Previous slide">‹</button>
+      <div class="carousel__track" id="carouselTrack" tabindex="0" aria-live="polite"></div>
+      <button class="carousel__nav next" data-dir="1" aria-label="Next slide">›</button>
+      <div class="carousel__dots" id="carouselDots" role="tablist" aria-label="Choose slide"></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <!-- LEFT: scan a team -->
+  <div class="col">
+    <h2>SCAN A TEAM</h2>
+    <label for="team">Team</label>
+    <select id="team"></select>
+
+    <label>Classes</label>
+    <div class="years" id="years">
+      <label><input type="checkbox" value="2027" checked> 2027</label>
+      <label><input type="checkbox" value="2028" checked> 2028</label>
+      <label><input type="checkbox" value="2029" checked> 2029</label>
+    </div>
+
+    <div class="row">
+      <button id="scanBtn">🔄 Scan team</button>
+      <button class="ghost" id="addWatch">＋ Add to watchlist</button>
+    </div>
+
+    <div id="teamResult" style="margin-top:16px"></div>
+  </div>
+
+  <!-- RIGHT: watchlist + aggregated feed -->
+  <div class="col">
+    <h2>WATCHLIST</h2>
+    <div id="watchPills"></div>
+    <div class="row">
+      <button id="scanWatch">🔔 Scan watchlist (aggregate NEW)</button>
+    </div>
+    <div id="watchResult" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<!-- BATTLES: rival board comparison -->
+<div class="wrap">
+  <div class="col">
+    <h2>⚔️ RIVAL BOARD COMPARISON</h2>
+    <label for="rivalA">Team A</label>
+    <select id="rivalA"></select>
+    <label for="rivalB">Team B</label>
+    <select id="rivalB"></select>
+    <div class="row">
+      <button id="scanRivals">⚔️ Compare boards</button>
+    </div>
+    <div id="rivalsResult" style="margin-top:12px"></div>
+  </div>
+
+  <div class="col">
+    <h2>⚔️ WATCHLIST SHARED TARGETS</h2>
+    <div class="row">
+      <button id="scanContested">🔍 Cross-reference watchlist</button>
+    </div>
+    <div id="contestedResult" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const API = "";
+
+async function getTeams(){
+  const r = await fetch(API + "/api/teams");
+  const t = await r.json();
+  const sel = $("#team");
+  t.sort((a,b)=>a.name.localeCompare(b.name));
+  sel.innerHTML = t.map(x=>`<option value="${x.slug}">${x.name}</option>`).join("");
+}
+
+function selectedYears(){
+  return [...document.querySelectorAll("#years input:checked")].map(c=>c.value);
+}
+
+async function scanTeam(slug){
+  const body = JSON.stringify({slug, years:selectedYears()});
+  const r = await fetch(API + "/api/scan",{method:"POST",headers:{"Content-Type":"application/json"},body});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); $("#teamResult").innerHTML=`<div class="empty">Error: ${e.error||r.status}</div>`; return; }
+  const d = await r.json();
+  renderTeam(d);
+  setCarouselFromRecruits(d.recruits, d.team_name);
+}
+
+/* ===== Pagination =====
+   State keyed by mount id. Visible pages are 1-based; the offset into the
+   array is computed in EXACTLY ONE place (offsetFor). Total pages recomputed
+   whenever rows/filter/pageSize change; current page is clamped. */
+const PAGE_STATE = {};
+const PAGE_SIZE = 10;
+
+function offsetFor(page, pageSize){ return (page - 1) * pageSize; }   // only place
+
+function buildPagerHTML(mount, totalRows, pageSize){
+  const st = PAGE_STATE[mount];
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  st.page = Math.min(Math.max(1, st.page), totalPages);   // clamp
+  const cur = st.page;
+  let links = [];
+  // prev
+  links.push(`<a class="${cur===1?'disabled':''}" data-go="${cur-1}" aria-label="Previous page">‹</a>`);
+  // numbered with ellipsis
+  const win = 1, edge = 1;
+  let prevN = 0;
+  for(let p=1; p<=totalPages; p++){
+    const show = p<=edge || p>totalPages-edge || Math.abs(p-cur)<=win;
+    if(show){
+      if(p - prevN > 1) links.push(`<a class="ellipsis" aria-hidden="true">…</a>`);
+      links.push(`<a data-go="${p}" ${p===cur?'aria-current="page"':''}>${p}</a>`);
+      prevN = p;
+    }
+  }
+  // next
+  links.push(`<a class="${cur===totalPages?'disabled':''}" data-go="${cur+1}" aria-label="Next page">›</a>`);
+  return `<nav class="pager" aria-label="pagination">${links.join("")}<span class="info">${totalRows} rows · page ${cur}/${totalPages}</span></nav>`;
+}
+
+function wirePager(mount, pageSize){
+  const nav = document.querySelector(`${mount} nav.pager`);
+  if(!nav) return;
+  nav.querySelectorAll("a[data-go]").forEach(a=>{
+    a.onclick = ()=>{
+      const go = parseInt(a.dataset.go, 10);
+      if(isNaN(go)) return;
+      PAGE_STATE[mount].page = go;
+      renderPagedRows(mount, pageSize);
+    };
+  });
+}
+
+function renderPagedRows(mount, pageSize, pagerSel){
+  const st = PAGE_STATE[mount];
+  const rows = st.filtered();
+  const total = rows.length;
+  const start = offsetFor(st.page, pageSize);
+  const slice = rows.slice(start, start + pageSize);
+  const tbody = document.querySelector(`${mount} tbody`);
+  if(tbody) tbody.innerHTML = slice.join("");
+  // (re)build pager into its container
+  const pagerMount = document.querySelector(pagerSel || `${mount} nav.pager`);
+  if(pagerMount) pagerMount.outerHTML = buildPagerHTML(mount, total, pageSize);
+  wirePager(mount, pageSize);
+}
+
+function renderTeam(d){
+  const allRows = (d.recruits||[]);
+  PAGE_STATE["#teamResult"] = {
+    page: 1,
+    all: allRows,
+    filtered: function(){
+      const v = (document.querySelector("#tierFilter")||{}).value || "";
+      return v ? this.all.filter(r=>r.tier===v) : this.all;
+    }
+  };
+  const tiers = ["Locked","Strong","Soft","Toss-up","Fading","Lost"];
+  const opts = `<option value="">All tiers</option>` + tiers.map(t=>`<option value="${t}">${t}</option>`).join("");
+  const newBadge = d.new_count ? `<span class="badge new">${d.new_count} NEW</span>` : "";
+  $("#teamResult").innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <strong style="font-size:16px">${d.team_name}</strong>
+      ${newBadge}
+    </div>
+    <div class="meta">${d.count} predictions · scanned ${new Date(d.scanned_at).toLocaleString()}</div>
+    ${allRows.length ? `
+      <label style="margin-top:10px">Filter by tier</label>
+      <select id="tierFilter">${opts}</select>
+      <table style="margin-top:8px"><thead><tr>
+        <th>Recruit</th><th>Miami/team lean</th><th>Confidence</th><th>Picks</th><th>Class</th>
+      </tr></thead><tbody></tbody></table>
+      <div id="teamPager"></div>` : `<div class="empty">No current predictions found.</div>`}
+  `;
+  if(allRows.length){
+    const tf = $("#tierFilter");
+    tf.onchange = ()=>{ PAGE_STATE["#teamResult"].page = 1; renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager"); };
+    renderPagedRows("#teamResult", PAGE_SIZE, "#teamPager");
+  }
+}
+
+
+async function loadWatch(){
+  const r = await fetch(API + "/api/watchlist");
+  const w = await r.json();
+  $("#watchPills").innerHTML = w.length
+    ? w.map(x=>`<span class="pill">${x.name}<button data-slug="${x.slug}" title="remove">✕</button></span>`).join("")
+    : `<span class="muted">Watchlist empty — add a team.</span>`;
+  document.querySelectorAll("#watchPills button[data-slug]").forEach(b=>{
+    b.onclick = async ()=>{ await fetch(API+"/api/watch/"+b.dataset.slug,{method:"DELETE"}); loadWatch(); };
+  });
+}
+
+async function scanWatch(){
+  const body = JSON.stringify({years:selectedYears()});
+  $("#scanWatch").textContent = "…scanning";
+  const r = await fetch(API+"/api/scan-watch",{method:"POST",headers:{"Content-Type":"application/json"},body});
+  $("#scanWatch").textContent = "🔔 Scan watchlist (aggregate NEW)";
+  if(!r.ok){ $("#watchResult").innerHTML=`<div class="empty">Error ${r.status}</div>`; return; }
+  const d = await r.json();
+  const items = [];
+  d.results.forEach(res=>{
+    if(res.new.length){
+      res.new.forEach(n=>items.push(`<li><strong>${res.team_name}:</strong> ${n.name} → <b>${n.school}</b> <span class="muted">(${n.analyst}, ${n.date})</span></li>`));
+    }
+  });
+  $("#watchResult").innerHTML = items.length
+    ? `<div class="badge new">${d.total_new} NEW across watchlist</div><ul class="feed" style="margin-top:10px">${items.join("")}</ul>`
+    : `<div class="empty">No new predictions across your watchlist since last scan.</div>`;
+  if(d.total_new) showToast(`🏈 ${d.total_new} new prediction${d.total_new>1?"s":""} on your watchlist!`);
+}
+
+function starStr(n){ return (n||0) ? "★".repeat(n) + "☆".repeat(Math.max(0,5-n)) : "—"; }
+
+function boardTable(name, board, slug){
+  const mount = `#board-${slug}`;
+  PAGE_STATE[mount] = { page: 1, all: (board.recruits||[]), filtered: function(){ return this.all; } };
+  const has = (board.recruits||[]).length > 0;
+  return `<div style="margin-top:10px">
+    <strong>${name}</strong> <span class="meta">· board strength ${board.strength} · ${board.count} targets</span>
+    ${has ? `<table style="margin-top:6px"><thead><tr><th>Recruit</th><th>Stars</th><th>Rating</th><th>Lean</th><th>Conf</th><th>Class</th></tr></thead><tbody></tbody></table>
+      <div id="pager-${slug}"></div>` : `<div class="empty">No targets.</div>`}
+  </div>`;
+}
+
+function renderBoardPage(slug){
+  const mount = `#board-${slug}`;
+  const st = PAGE_STATE[mount];
+  const rows = st.all;
+  const start = offsetFor(st.page, PAGE_SIZE);
+  const slice = rows.slice(start, start + PAGE_SIZE);
+  const rowHTML = r=>`<tr>
+      <td>${r.name}</td>
+      <td style="white-space:nowrap;color:var(--green2);letter-spacing:1px">${starStr(r.stars)}</td>
+      <td class="muted">${r.rating!=null?r.rating:"—"}</td>
+      <td>${r.pct.toFixed(0)}% <span class="trend">${r.trend}</span></td>
+      <td><span class="chip" style="background:${tierColor(r.tier)}">${r.tier}</span></td>
+      <td class="muted">${r.years.join(",")}</td>
+    </tr>`;
+  const tbody = document.querySelector(`${mount} tbody`);
+  if(tbody) tbody.innerHTML = slice.map(rowHTML).join("");
+  const pm = document.querySelector(`#pager-${slug}`);
+  if(pm) pm.outerHTML = buildPagerHTML(mount, rows.length, PAGE_SIZE);
+  wirePager(mount, PAGE_SIZE);
+}
+
+function tierColor(tier){
+  return {"Locked":"#16a34a","Strong":"#1ec35a","Soft":"#f59e0b","Toss-up":"#eab308","Fading":"#ef4444","Lost":"#ef4444"}[tier]||"#888";
+}
+
+function renderCompare(d, mount){
+  const boards = d.boards || {};
+  const slugs = Object.keys(boards);
+  if(!slugs.length){ $(mount).innerHTML = `<div class="empty">No data.</div>`; return; }
+  // strength gauges (NSLevelIndicator .continuousCapacity analog: bounded 0-100,
+  // warningValue=40, criticalValue=20 -> native threshold coloring)
+  const WARN=40, CRIT=20;
+  const head = slugs.map(s=>{
+    const b=boards[s];
+    const v=b.strength||0;
+    const cls = v<CRIT ? "crit" : (v<WARN ? "warn" : "");
+    return `<div class="gauge">
+      <div class="gauge__label"><span><b>${b.name||s}</b> board strength</span><span>${v.toFixed(0)} / 100</span></div>
+      <div class="gauge__track"><div class="gauge__fill ${cls}" style="width:${Math.max(2,Math.min(100,v))}%"></div>
+        <div class="gauge__ticks"><i style="left:${WARN}%"></i><i style="left:${CRIT}%"></i></div></div>
+    </div>`;
+  }).join("");
+  // shared
+  const shared = (d.shared||[]);
+  const sharedHtml = shared.length
+    ? `<div style="margin-top:12px"><strong>🎯 Genuinely contested (predicted to both):</strong><ul class="feed">`+
+      shared.map(c=>`<li>${c.name} → ${c.teams.map(t=>`${t.team_name||t.slug} ${t.pct.toFixed(0)}%`).join(" vs ")}</li>`).join("")+`</ul></div>`
+    : `<div class="meta" style="margin-top:12px">No recruits currently predicted to both teams (247 only lists team-specific targets).</div>`;
+  $(mount).innerHTML = `<div class="meta">Board strength = avg weighted lean across all targets (higher = analysts leaning this team harder).</div>${head}${slugs.map(s=>boardTable(boards[s].name||s, boards[s], s)).join("")}${sharedHtml}`;
+  slugs.forEach(s=>{ if((boards[s].recruits||[]).length) renderBoardPage(s); });
+}
+
+async function scanContested(){
+  $("#scanContested").textContent = "…scanning";
+  const r = await fetch(API+"/api/contested",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({years:selectedYears()})});
+  $("#scanContested").textContent = "🔍 Cross-reference watchlist";
+  if(!r.ok){ $("#contestedResult").innerHTML=`<div class="empty">Error ${r.status}</div>`; return; }
+  renderCompare(await r.json(), "#contestedResult");
+}
+
+async function scanRivals(){
+  const a=$("#rivalA").value, b=$("#rivalB").value;
+  if(!a||!b||a===b){ $("#rivalsResult").innerHTML=`<div class="empty">Pick two different teams.</div>`; return; }
+  $("#scanRivals").textContent = "…comparing";
+  const r = await fetch(API+"/api/rivals",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slugs:[a,b],years:selectedYears()})});
+  $("#scanRivals").textContent = "⚔️ Compare boards";
+  if(!r.ok){ $("#rivalsResult").innerHTML=`<div class="empty">Error ${r.status}</div>`; return; }
+  renderCompare(await r.json(), "#rivalsResult");
+}
+
+function fillRivalSelects(){
+  const sel = $("#team");
+  $("#rivalA").innerHTML = sel.innerHTML;
+  $("#rivalB").innerHTML = sel.innerHTML;
+}
+
+/* ===== Carousel (content slider) ===== */
+let CAROUSEL = { slides: [], idx: 0 };
+
+function carouselSlideHTML(r, i, n){
+  // r: {name, pct, tier, trend_symbol, stars, team}
+  return `<div class="carousel__slide" role="group" aria-roledescription="slide"
+      aria-label="${i+1} of ${n}">
+    <h3>${r.name}</h3>
+    <div class="meta">${r.team||""} · ${starStr(r.stars)}</div>
+    <div style="margin-top:6px"><span class="chip" style="background:${tierColor(r.tier)}">${r.tier}</span>
+      <span class="trend">${r.trend_symbol}</span>
+      <b style="color:var(--green2)">${r.pct.toFixed(0)}%</b> lean</div>
+  </div>`;
+}
+
+function renderCarousel(){
+  const track = $("#carouselTrack"), dots = $("#carouselDots");
+  const slides = CAROUSEL.slides;
+  const n = slides.length;
+  if(!n){ track.innerHTML = `<div class="carousel__slide"><h3>Scan a team</h3><div class="meta">Trending recruits will appear here.</div></div>`; dots.innerHTML=""; return; }
+  CAROUSEL.idx = Math.min(Math.max(0, CAROUSEL.idx), n-1);
+  track.innerHTML = slides.map((r,i)=>carouselSlideHTML(r,i,n)).join("");
+  dots.innerHTML = slides.map((_,i)=>`<button role="tab" aria-label="Go to slide ${i+1}" ${i===CAROUSEL.idx?'aria-current="true"':''} data-i="${i}"></button>`).join("");
+  dots.querySelectorAll("button").forEach(b=>{
+    b.onclick = ()=>{ CAROUSEL.idx = +b.dataset.i; scrollCarouselTo(CAROUSEL.idx); renderCarousel(); };
+  });
+  scrollCarouselTo(CAROUSEL.idx);
+}
+
+function scrollCarouselTo(i){
+  const track = $("#carouselTrack");
+  if(!track) return;
+  const slide = track.children[i];
+  if(slide) track.scrollTo({left: slide.offsetLeft - track.offsetLeft, behavior:"smooth"});
+}
+
+function carouselStep(dir){
+  const n = CAROUSEL.slides.length;
+  if(!n) return;
+  CAROUSEL.idx = (CAROUSEL.idx + dir + n) % n;
+  scrollCarouselTo(CAROUSEL.idx); renderCarousel();
+}
+
+function setCarouselFromRecruits(recruits, teamName){
+  // top trending: highest lean, show stars + tier
+  CAROUSEL.slides = (recruits||[]).slice(0,8).map(r=>({
+    name:r.name, pct:r.pct, tier:r.tier, trend_symbol:r.trend_symbol,
+    stars:r.stars, team:teamName
+  }));
+  renderCarousel();
+}
+
+document.querySelectorAll(".carousel__nav").forEach(b=>{
+  b.onclick = ()=> carouselStep(parseInt(b.dataset.dir,10)||1);
+});
+$("#carouselTrack").addEventListener("keydown", e=>{
+  if(e.key==="ArrowRight") carouselStep(1);
+  if(e.key==="ArrowLeft") carouselStep(-1);
+});
+
+
+$("#scanBtn").onclick = ()=>{ const s=$("#team").value; if(s) scanTeam(s); };
+$("#addWatch").onclick = async ()=>{
+  const s=$("#team").value, n=$("#team").selectedOptions[0].text;
+  await fetch(API+"/api/watch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({slug:s,name:n})});
+  loadWatch();
+};
+$("#scanWatch").onclick = scanWatch;
+$("#scanContested").onclick = scanContested;
+$("#scanRivals").onclick = scanRivals;
+
+getTeams().then(fillRivalSelects);
+loadWatch();
+renderCarousel();
+</script>
+</body>
+</html>

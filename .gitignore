@@ -1,0 +1,6 @@
+site/data.json
+.venv/
+state/
+__pycache__/
+*.pyc
+*.log
